@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 
 async function validateEmail(email, page) {
-  if (!email || !page) return;
+  if (!email || !page) throw new Error("Invalid parameters");
 
   try {
     const input = await page.$("#email");
@@ -15,25 +15,40 @@ async function validateEmail(email, page) {
     await page.waitForNavigation();
 
     const output = await page.$("#output");
-    const outputText = await output.$eval(".left", (e) => e.innerHTML);
+
+    const outputText = await output?.$eval(".left", (e) => e?.innerHTML);
+
     const emailisValid =
-      outputText.includes("Conta de e-mail existe") &&
-      outputText.includes("Conectou com sucesso ao") &&
-      outputText.includes(" encontrado.") &&
-      outputText.includes("is a valid email address.");
+      outputText?.includes("Conta de e-mail existe") ||
+      (outputText?.includes("Conectou com sucesso ao") &&
+        outputText?.includes(" encontrado.") &&
+        outputText?.includes("is a valid email address."));
+
+    // clear input after validate
+    await page.evaluate(() => (document.getElementById("email").value = ""));
 
     return emailisValid;
   } catch (error) {
-    console.log("deu erro", error.message);
+    throw new Error(error);
   }
 }
 
 async function executeBrowser() {
-  // const emails = require("./emails.json");
-  const emails = [
-    { email: "eduardo.yyuganasjd@asd.com" },
-    { email: "eduardo.yyuganasjd@asd.com" },
-    { email: "eduardo.yyuganasjd@asd.com" },
+  // array of emails in format : [ { email: 'example@email.com' } ]
+  const emails = require("./emails.json");
+
+  const emailsAlreadyProcessed = fs
+    .readFileSync("./invalidEmails.txt")
+    .toString()
+    .split("\n");
+
+  // const pendingEmailsToValidate = [
+  //   { email: "example1@email.com" },
+  //   { email: "example2@email.com" },
+  //   { email: "example3@email.com" },
+  // ];
+  const pendingEmailsToValidate = [
+    ...emails.filter((e) => !emailsAlreadyProcessed.includes(e.email)),
   ];
 
   const browser = await puppeteer.launch({ headless: true });
@@ -41,21 +56,32 @@ async function executeBrowser() {
 
   await page.goto("https://pt.infobyip.com/verifyemailaccount.php");
 
-  const invalidEmails = [];
+  const progressChunk = 100 / pendingEmailsToValidate.length;
+  let progress = 0;
+
+  const interval = setInterval(() => {
+    console.log(`Progress: ${progress.toFixed(2)}%`);
+
+    if (progress >= 100) clearInterval(interval);
+  }, 5000);
 
   console.time(`tempo para validar emails`);
-  for await (const { email } of emails) {
-    console.time(`tempo para validar o email: ${email}`);
-    const isValid = await validateEmail(email, page);
+  for await (const { email } of pendingEmailsToValidate) {
+    try {
+      const isValid = await validateEmail(email, page);
 
-    if (!isValid) invalidEmails.push(email);
+      if (!isValid) fs.appendFileSync("invalidEmails.txt", `${email}\n`);
+      fs.appendFileSync("alreadyProcessed.txt", `${email}\n`);
 
-    console.log(`o email ${email} é ${isValid ? "válido" : "inválido"} \n`);
-    console.timeEnd(`tempo para validar o email: ${email}`);
+      progress += progressChunk;
+    } catch (error) {
+      console.log("An error ocurred", error.message || error);
+
+      clearInterval(interval);
+      break;
+    }
   }
   console.timeEnd(`tempo para validar emails`);
-
-  fs.writeFileSync("invalidEmails.txt", invalidEmails.join("\n"));
 
   await browser.close();
 }

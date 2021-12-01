@@ -1,3 +1,5 @@
 node_modules
 emails.json
 yarn.lock
+alreadyProcessed.txt
+invalidEmails.txt
