@@ -65,7 +65,7 @@ async function executeBrowser() {
     if (progress >= 100) clearInterval(interval);
   }, 5000);
 
-  console.time(`tempo para validar emails`);
+  console.time(`Time to validate emails`);
   for await (const { email } of pendingEmailsToValidate) {
     try {
       const isValid = await validateEmail(email, page);
@@ -81,7 +81,7 @@ async function executeBrowser() {
       break;
     }
   }
-  console.timeEnd(`tempo para validar emails`);
+  console.timeEnd(`Time to validate emails`);
 
   await browser.close();
 }
