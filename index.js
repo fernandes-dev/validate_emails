@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const emails = require("./emails.json");
+const fs = require("fs");
 
 async function validateEmail(email, page) {
   if (!email || !page) return;
@@ -29,20 +29,35 @@ async function validateEmail(email, page) {
 }
 
 async function executeBrowser() {
+  // const emails = require("./emails.json");
+  const emails = [
+    { email: "eduardo.yyuganasjd@asd.com" },
+    { email: "eduardo.yyuganasjd@asd.com" },
+    { email: "eduardo.yyuganasjd@asd.com" },
+  ];
+
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
-  const email = "eduardo.yugan@gmail.com";
-
   await page.goto("https://pt.infobyip.com/verifyemailaccount.php");
 
-  console.time(`tempo para validar email`);
-  const emailIsValid = await validateEmail(email, page);
-  console.log("email é válido? " + emailIsValid);
+  const invalidEmails = [];
+
+  console.time(`tempo para validar emails`);
+  for await (const { email } of emails) {
+    console.time(`tempo para validar o email: ${email}`);
+    const isValid = await validateEmail(email, page);
+
+    if (!isValid) invalidEmails.push(email);
+
+    console.log(`o email ${email} é ${isValid ? "válido" : "inválido"} \n`);
+    console.timeEnd(`tempo para validar o email: ${email}`);
+  }
+  console.timeEnd(`tempo para validar emails`);
+
+  fs.writeFileSync("invalidEmails.txt", invalidEmails.join("\n"));
 
   await browser.close();
-
-  console.timeEnd(`tempo para validar email`);
 }
 
 executeBrowser();
