@@ -34,6 +34,7 @@ async function validateEmail(email, page) {
 }
 
 async function executeBrowser() {
+  console.log(`🔥 Process started at ${new Date().toISOString()}`);
   // array of emails in format : [ { email: 'example@email.com' } ]
   const emails = require("./emails.json");
 
@@ -65,6 +66,7 @@ async function executeBrowser() {
     if (progress >= 100) clearInterval(interval);
   }, 5000);
 
+  let restart = false;
   console.time(`Time to validate emails`);
   for await (const { email } of pendingEmailsToValidate) {
     try {
@@ -75,6 +77,7 @@ async function executeBrowser() {
 
       progress += progressChunk;
     } catch (error) {
+      restart = true;
       console.log("An error ocurred", error.message || error);
 
       clearInterval(interval);
@@ -84,6 +87,8 @@ async function executeBrowser() {
   console.timeEnd(`Time to validate emails`);
 
   await browser.close();
+
+  if (restart) executeBrowser();
 }
 
 executeBrowser();
